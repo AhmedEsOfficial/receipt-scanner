@@ -5,19 +5,23 @@ import com.pharadev.receiptscanner.domain.model.CategoryDomain
 import com.pharadev.receiptscanner.domain.model.ReceiptDomain
 import com.pharadev.receiptscanner.domain.repository.CategoryRepository
 import com.pharadev.receiptscanner.domain.repository.ReceiptRepository
+import com.pharadev.receiptscanner.data.cache.RecentSearchesCache
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class ReceiptListViewModel @Inject constructor(
     private val receiptRepository: ReceiptRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val recentSearchesCache: RecentSearchesCache
 ) : BaseViewModel() {
     
     private val _receipts = MutableStateFlow<List<ReceiptDomain>>(emptyList())
@@ -34,6 +38,13 @@ class ReceiptListViewModel @Inject constructor(
     
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+    
+    val recentSearches: StateFlow<List<String>> = recentSearchesCache.recentSearches
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
     
     init {
         loadCategories()
@@ -79,6 +90,12 @@ class ReceiptListViewModel @Inject constructor(
     
     fun searchReceipts(query: String) {
         _searchQuery.value = query
+        // Save to recent searches if query is meaningful
+        if (query.trim().length >= 2) {
+            viewModelScope.launch {
+                recentSearchesCache.addRecentSearch(query.trim())
+            }
+        }
     }
     
     fun filterByCategory(category: CategoryDomain?) {

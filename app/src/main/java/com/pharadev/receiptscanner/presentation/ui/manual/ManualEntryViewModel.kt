@@ -32,7 +32,7 @@ class ManualEntryViewModel @Inject constructor(
     sealed class SaveState {
         object Idle : SaveState()
         object Loading : SaveState()
-        object Success : SaveState()
+        data class Success(val receiptId: Long) : SaveState()
         data class Error(val message: String) : SaveState()
     }
     
@@ -84,8 +84,8 @@ class ManualEntryViewModel @Inject constructor(
                 modifiedAt = now
             )
             
-            receiptRepository.insertReceipt(receipt)
-            _saveState.value = SaveState.Success
+            val receiptId = receiptRepository.insertReceipt(receipt)
+            _saveState.value = SaveState.Success(receiptId)
             
         } catch (exception: Exception) {
             _saveState.value = SaveState.Error(

@@ -2,6 +2,7 @@ package com.pharadev.receiptscanner.di
 
 import android.content.Context
 import com.pharadev.receiptscanner.data.ocr.DataExtractionService
+import com.pharadev.receiptscanner.data.ocr.ImagePreprocessingService
 import com.pharadev.receiptscanner.data.ocr.OCRProcessingService
 import com.pharadev.receiptscanner.data.ocr.TextRecognitionService
 import dagger.Module
@@ -19,14 +20,24 @@ import javax.inject.Singleton
 object OCRModule {
     
     /**
+     * Provides image preprocessing service for enhancing images before OCR
+     */
+    @Provides
+    @Singleton
+    fun provideImagePreprocessingService(): ImagePreprocessingService {
+        return ImagePreprocessingService()
+    }
+    
+    /**
      * Provides ML Kit text recognition service
      */
     @Provides
     @Singleton
     fun provideTextRecognitionService(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        imagePreprocessingService: ImagePreprocessingService
     ): TextRecognitionService {
-        return TextRecognitionService(context)
+        return TextRecognitionService(context, imagePreprocessingService)
     }
     
     /**

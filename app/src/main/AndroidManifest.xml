@@ -8,6 +8,9 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     
+    <!-- Internet permission for MLKit model downloads -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <!-- Camera features -->
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -24,6 +27,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ReceiptScanner"
         tools:targetApi="31">
+        
+        <!-- MLKit Text Recognition Model Configuration -->
+        <!-- This ensures the text recognition model is automatically downloaded -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+            
+        <!-- Optional: Force model download to device storage (not Play Services) -->
+        <meta-data
+            android:name="com.google.android.gms.vision.DEPENDENCIES"
+            android:value="ocr" />
         
         <!-- Camera Activity -->
         <activity
@@ -51,6 +65,18 @@
             android:name=".presentation.ui.manual.ManualEntryActivity"
             android:exported="false"
             android:screenOrientation="portrait"
+            android:theme="@style/Theme.ReceiptScanner" />
+            
+        <!-- Receipt List Activity -->
+        <activity
+            android:name=".presentation.ui.receipts.ReceiptListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ReceiptScanner" />
+            
+        <!-- Receipt Detail Activity -->
+        <activity
+            android:name=".presentation.ui.receipts.ReceiptDetailActivity"
+            android:exported="false"
             android:theme="@style/Theme.ReceiptScanner" />
             
         <!-- Main Activity -->

@@ -21,28 +21,42 @@ class DataExtractionService @Inject constructor() {
         // Currency symbols and patterns
         val CURRENCY_SYMBOLS = listOf("$", "€", "£", "¥", "₹", "₽", "¢")
         
-        // Amount patterns - matches various currency formats
+        // Amount patterns - matches various currency formats (improved and more flexible)
         val AMOUNT_PATTERNS = listOf(
-            // $12.34, €12,34, £12.34
-            "([${CURRENCY_SYMBOLS.joinToString("")}]?)\\s*([0-9]{1,4}[,.]?[0-9]{0,2}[.,][0-9]{2})".toPattern(),
-            // $123, €123, 123.00
-            "([${CURRENCY_SYMBOLS.joinToString("")}]?)\\s*([0-9]{1,4}[.,][0-9]{2})".toPattern(),
-            // TOTAL: 12.34, Total $12.34
-            "(?i)(?:total|amount|sum)\\s*:?\\s*([${CURRENCY_SYMBOLS.joinToString("")}]?)\\s*([0-9]{1,4}[.,][0-9]{2})".toPattern(),
-            // 12.34 at end of line (likely total)
-            "([0-9]{1,4}[.,][0-9]{2})\\s*$".toPattern()
+            // TOTAL/AMOUNT keywords with currency: TOTAL: $12.34, Amount €12,34
+            "(?i)(?:total|amount|sum|subtotal|grand\\s*total)\\s*:?\\s*([${CURRENCY_SYMBOLS.joinToString("")}]?)\\s*([0-9]{1,6}[.,][0-9]{2})".toPattern(),
+            // Currency symbol followed by amount: $12.34, €12,34, £123.45
+            "([${CURRENCY_SYMBOLS.joinToString("")}])\\s*([0-9]{1,6}[.,]?[0-9]{0,3}[.,]?[0-9]{2})".toPattern(),
+            // Amount with decimal: 12.34, 123.45, 1234.56 (strict decimal format)
+            "\\b([0-9]{1,6}\\.[0-9]{2})\\b".toPattern(),
+            // Amount with comma as decimal separator: 12,34, 123,45
+            "\\b([0-9]{1,6},[0-9]{2})\\b".toPattern(),
+            // Integer amounts (likely totals): 15, 25, 125 but not phone numbers or dates
+            "(?<!\\d)([1-9][0-9]{1,4})(?![-/\\d])".toPattern(),
+            // Amount at end of line (common for totals): 12.34 EOL
+            "([0-9]{1,6}[.,][0-9]{2})\\s*$".toPattern(),
+            // Amounts with thousands separators: 1,234.56 or 1.234,56
+            "\\b([0-9]{1,3}[,.][0-9]{3}[.,][0-9]{2})\\b".toPattern()
         )
         
-        // Date patterns - various formats
+        // Date patterns - comprehensive formats (improved to catch more variations)
         val DATE_PATTERNS = listOf(
-            // MM/dd/yyyy, dd/MM/yyyy
-            "([0-1]?[0-9])[/\\-.]([0-3]?[0-9])[/\\-.](20[0-9]{2}|[0-9]{2})".toPattern(),
-            // yyyy-MM-dd
-            "(20[0-9]{2})[/\\-.]([0-1]?[0-9])[/\\-.]([0-3]?[0-9])".toPattern(),
-            // dd-MMM-yyyy (e.g., 15-Jan-2023)
-            "([0-3]?[0-9])[/\\-.]([A-Za-z]{3})[/\\-.](20[0-9]{2}|[0-9]{2})".toPattern(),
-            // MMM dd, yyyy (e.g., Jan 15, 2023)
-            "([A-Za-z]{3})\\s+([0-3]?[0-9]),?\\s+(20[0-9]{2}|[0-9]{2})".toPattern()
+            // MM/dd/yyyy, MM/dd/yy, dd/MM/yyyy, dd/MM/yy (most common)
+            "\\b([0-1]?[0-9])[/\\-.]([0-3]?[0-9])[/\\-.](20[0-9]{2}|[0-9]{2})\\b".toPattern(),
+            // yyyy-MM-dd, yyyy/MM/dd (ISO format)
+            "\\b(20[0-9]{2})[/\\-.]([0-1]?[0-9])[/\\-.]([0-3]?[0-9])\\b".toPattern(),
+            // dd-MMM-yyyy, dd MMM yyyy (e.g., 15-Jan-2023, 15 Jan 2023)
+            "\\b([0-3]?[0-9])\\s*[/\\-.]?\\s*([A-Za-z]{3,9})\\s*[/\\-.]?\\s*(20[0-9]{2}|[0-9]{2})\\b".toPattern(),
+            // MMM dd, yyyy, MMM dd yyyy (e.g., Jan 15, 2023, Jan 15 2023)
+            "\\b([A-Za-z]{3,9})\\s+([0-3]?[0-9]),?\\s+(20[0-9]{2}|[0-9]{2})\\b".toPattern(),
+            // Month dd, yyyy (e.g., January 15, 2023)
+            "\\b([A-Za-z]{3,9})\\s+([0-3]?[0-9]),?\\s+(20[0-9]{2})\\b".toPattern(),
+            // dd Month yyyy (e.g., 15 January 2023)
+            "\\b([0-3]?[0-9])\\s+([A-Za-z]{3,9})\\s+(20[0-9]{2})\\b".toPattern(),
+            // Compact formats: ddmmyyyy, ddmmyy, mmddyyyy, mmddyy
+            "\\b([0-3][0-9])([0-1][0-9])(20[0-9]{2}|[0-9]{2})\\b".toPattern(),
+            // Time-date combinations: MM/dd/yyyy HH:mm, dd/MM/yyyy HH:mm
+            "\\b([0-1]?[0-9])[/\\-.]([0-3]?[0-9])[/\\-.](20[0-9]{2}|[0-9]{2})\\s+([0-2]?[0-9]):([0-5][0-9])".toPattern()
         )
         
         // Common receipt keywords for vendor identification
@@ -103,7 +117,7 @@ class DataExtractionService @Inject constructor() {
     }
     
     /**
-     * Extract monetary amount from receipt text
+     * Extract monetary amount from receipt text (improved with better pattern handling)
      * Prioritizes larger amounts and those with "total" keywords
      */
     private fun extractAmount(fullText: String, lines: List<String>, textBlocks: List<TextBlock>): AmountData? {
@@ -111,46 +125,91 @@ class DataExtractionService @Inject constructor() {
         
         // Search through all lines for amount patterns
         lines.forEachIndexed { lineIndex, line ->
-            AMOUNT_PATTERNS.forEach { pattern ->
+            AMOUNT_PATTERNS.forEachIndexed { patternIndex, pattern ->
                 val matcher = pattern.matcher(line)
                 while (matcher.find()) {
                     try {
-                        val currencySymbol = matcher.group(1) ?: ""
-                        val amountText = matcher.group(matcher.groupCount())
-                        val normalizedAmount = amountText.replace(",", ".")
-                        val amount = BigDecimal(normalizedAmount)
+                        val matchedText = matcher.group()
+                        var currencySymbol = ""
+                        var amountText = matchedText
                         
-                        // Calculate confidence based on context
-                        var confidence = 0.5f
-                        val lowerLine = line.lowercase()
-                        
-                        // Higher confidence for lines with "total" keywords
-                        if (lowerLine.contains("total") || lowerLine.contains("amount") || 
-                            lowerLine.contains("sum") || lowerLine.contains("subtotal")) {
-                            confidence += 0.3f
+                        // Handle different pattern types
+                        when (patternIndex) {
+                            0 -> { // Total/Amount keywords
+                                currencySymbol = matcher.group(1) ?: ""
+                                amountText = matcher.group(2)
+                            }
+                            1 -> { // Currency symbol patterns
+                                currencySymbol = matcher.group(1)
+                                amountText = matcher.group(2)
+                            }
+                            2, 3, 5, 6 -> { // Decimal amounts and end-of-line amounts
+                                amountText = matcher.group(1)
+                            }
+                            4 -> { // Integer amounts (no decimal)
+                                amountText = matcher.group(1) + ".00"
+                            }
                         }
                         
-                        // Higher confidence for amounts near bottom of receipt
-                        if (lineIndex > lines.size * 0.7) {
+                        // Normalize amount text (handle both comma and dot as decimal separator)
+                        val normalizedAmount = normalizeAmountText(amountText)
+                        val amount = BigDecimal(normalizedAmount)
+                        
+                        // Skip unreasonably large or small amounts
+                        if (amount < BigDecimal("0.01") || amount > BigDecimal("999999.99")) {
+                            continue
+                        }
+                        
+                        // Calculate confidence based on context and pattern type
+                        var confidence = 0.4f
+                        val lowerLine = line.lowercase()
+                        
+                        // Higher confidence for total/amount keyword patterns
+                        if (patternIndex == 0) {
+                            confidence += 0.4f
+                        }
+                        
+                        // Higher confidence for currency symbol patterns
+                        if (patternIndex == 1) {
                             confidence += 0.2f
                         }
                         
-                        // Higher confidence for larger amounts (likely totals)
-                        if (amount >= BigDecimal("10.00")) {
-                            confidence += 0.1f
+                        // Higher confidence for lines with total-related keywords
+                        when {
+                            lowerLine.contains("total") -> confidence += 0.3f
+                            lowerLine.contains("amount") || lowerLine.contains("sum") -> confidence += 0.25f
+                            lowerLine.contains("subtotal") || lowerLine.contains("grand") -> confidence += 0.2f
+                        }
+                        
+                        // Higher confidence for amounts near bottom of receipt (likely totals)
+                        if (lineIndex > lines.size * 0.7) {
+                            confidence += 0.15f
+                        }
+                        
+                        // Higher confidence for reasonable amounts
+                        when {
+                            amount >= BigDecimal("5.00") -> confidence += 0.1f
+                            amount >= BigDecimal("1.00") -> confidence += 0.05f
+                        }
+                        
+                        // Lower confidence for very small amounts (likely not totals)
+                        if (amount < BigDecimal("1.00")) {
+                            confidence -= 0.2f
                         }
                         
                         potentialAmounts.add(
                             AmountCandidate(
                                 amount = amount,
                                 currency = currencySymbol.takeIf { it.isNotEmpty() } ?: "$",
-                                confidence = confidence.coerceAtMost(1.0f),
+                                confidence = confidence.coerceIn(0.0f, 1.0f),
                                 context = line.trim()
                             )
                         )
                         
                     } catch (e: NumberFormatException) {
                         Log.w(TAG, "Failed to parse amount: ${matcher.group()}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error processing amount pattern: ${matcher.group()}", e)
                     }
                 }
             }
@@ -168,6 +227,58 @@ class DataExtractionService @Inject constructor() {
                     context = candidate.context
                 )
             }
+    }
+    
+    /**
+     * Normalize amount text to handle different decimal separators and formats
+     */
+    private fun normalizeAmountText(amountText: String): String {
+        var normalized = amountText.trim()
+        
+        // Handle thousands separators: 1,234.56 -> 1234.56, 1.234,56 -> 1234.56
+        val commaCount = normalized.count { it == ',' }
+        val dotCount = normalized.count { it == '.' }
+        
+        when {
+            // Format: 1,234.56 (US format with thousands separator)
+            commaCount == 1 && dotCount == 1 && normalized.indexOf(',') < normalized.indexOf('.') -> {
+                normalized = normalized.replace(",", "")
+            }
+            // Format: 1.234,56 (European format with thousands separator)
+            commaCount == 1 && dotCount == 1 && normalized.indexOf('.') < normalized.indexOf(',') -> {
+                normalized = normalized.replace(".", "").replace(",", ".")
+            }
+            // Format: 12,34 (European decimal separator)
+            commaCount == 1 && dotCount == 0 -> {
+                normalized = normalized.replace(",", ".")
+            }
+            // Format: 1,234 (could be thousands or decimal)
+            commaCount == 1 && dotCount == 0 -> {
+                val parts = normalized.split(",")
+                if (parts.size == 2 && parts[1].length == 2) {
+                    // Likely decimal: 12,34 -> 12.34
+                    normalized = normalized.replace(",", ".")
+                } else {
+                    // Likely thousands: 1,234 -> 1234.00
+                    normalized = normalized.replace(",", "") + ".00"
+                }
+            }
+            // Multiple commas: 1,234,567.89
+            commaCount > 1 -> {
+                val lastCommaIndex = normalized.lastIndexOf(',')
+                val lastDotIndex = normalized.lastIndexOf('.')
+                if (lastDotIndex > lastCommaIndex) {
+                    // Remove all commas (thousands separators)
+                    normalized = normalized.replace(",", "")
+                } else {
+                    // Last comma is decimal separator
+                    normalized = normalized.substring(0, lastCommaIndex).replace(",", "") + 
+                                "." + normalized.substring(lastCommaIndex + 1)
+                }
+            }
+        }
+        
+        return normalized
     }
     
     /**
@@ -289,19 +400,42 @@ class DataExtractionService @Inject constructor() {
     }
     
     /**
-     * Parse date string using multiple format attempts
+     * Parse date string using multiple format attempts (enhanced with more formats)
      */
     private fun parseDate(dateStr: String): Date? {
         val formats = listOf(
-            "MM/dd/yyyy", "dd/MM/yyyy", "MM-dd-yyyy", "dd-MM-yyyy",
-            "yyyy/MM/dd", "yyyy-MM-dd", "dd.MM.yyyy", "MM.dd.yyyy",
-            "dd-MMM-yyyy", "MMM dd, yyyy", "dd MMM yyyy"
+            // Common slash formats
+            "MM/dd/yyyy", "dd/MM/yyyy", "MM/dd/yy", "dd/MM/yy",
+            "M/d/yyyy", "d/M/yyyy", "M/d/yy", "d/M/yy",
+            // Common dash formats  
+            "MM-dd-yyyy", "dd-MM-yyyy", "MM-dd-yy", "dd-MM-yy",
+            "M-d-yyyy", "d-M-yyyy", "M-d-yy", "d-M-yy",
+            // ISO formats
+            "yyyy-MM-dd", "yyyy/MM/dd", "yyyy.MM.dd",
+            // Dot formats
+            "dd.MM.yyyy", "MM.dd.yyyy", "dd.MM.yy", "MM.dd.yy",
+            // Month name formats
+            "dd-MMM-yyyy", "dd MMM yyyy", "dd-MMM-yy", "dd MMM yy",
+            "MMM dd, yyyy", "MMM dd yyyy", "MMM dd, yy", "MMM dd yy",
+            "MMMM dd, yyyy", "MMMM dd yyyy", "dd MMMM yyyy",
+            // Compact formats
+            "ddMMyyyy", "ddMMyy", "MMddyyyy", "MMddyy",
+            "yyyyMMdd", "yyMMdd",
+            // With time
+            "MM/dd/yyyy HH:mm", "dd/MM/yyyy HH:mm", "yyyy-MM-dd HH:mm",
+            "MM/dd/yyyy hh:mm a", "dd/MM/yyyy hh:mm a"
         )
         
         formats.forEach { formatStr ->
             try {
                 val formatter = SimpleDateFormat(formatStr, Locale.US)
                 formatter.isLenient = false
+                
+                // Handle 2-digit years properly (assume 2000s for years 00-30, 1900s for 31-99)
+                if (formatStr.contains("yy") && !formatStr.contains("yyyy")) {
+                    formatter.set2DigitYearStart(Date(70, 0, 1)) // Start from 1970
+                }
+                
                 return formatter.parse(dateStr)
             } catch (e: Exception) {
                 // Try next format

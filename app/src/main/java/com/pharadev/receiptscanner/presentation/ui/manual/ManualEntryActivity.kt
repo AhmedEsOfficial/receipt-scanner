@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import com.pharadev.receiptscanner.R
 import com.pharadev.receiptscanner.data.ocr.ReceiptData
 import com.pharadev.receiptscanner.domain.model.CategoryDomain
+import com.pharadev.receiptscanner.presentation.ui.receipts.ReceiptDetailActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -50,7 +51,7 @@ class ManualEntryActivity : AppCompatActivity() {
     
     companion object {
         private const val TAG = "ManualEntryActivity"
-        private const val EXTRA_IMAGE_URI = "extra_image_uri"
+        const val EXTRA_IMAGE_URI = "extra_image_uri"
         private const val EXTRA_OCR_DATA = "extra_ocr_data"
         
         fun createIntent(context: Context, imageUri: Uri, ocrData: ReceiptData? = null): Intent {
@@ -172,8 +173,13 @@ class ManualEntryActivity : AppCompatActivity() {
         viewModel.saveState.observe(this) { state ->
             when (state) {
                 ManualEntryViewModel.SaveState.Loading -> showProgress()
-                ManualEntryViewModel.SaveState.Success -> {
+                is ManualEntryViewModel.SaveState.Success -> {
                     hideProgress()
+                    // Navigate to receipt detail view
+                    val intent = Intent(this, ReceiptDetailActivity::class.java).apply {
+                        putExtra("receiptId", state.receiptId)
+                    }
+                    startActivity(intent)
                     setResult(RESULT_OK)
                     finish()
                 }

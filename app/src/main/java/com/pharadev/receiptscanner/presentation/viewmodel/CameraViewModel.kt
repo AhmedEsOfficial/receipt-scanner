@@ -2,6 +2,7 @@ package com.pharadev.receiptscanner.presentation.viewmodel
 
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import java.io.File
 import com.pharadev.receiptscanner.data.ocr.OCRProcessingService
 import com.pharadev.receiptscanner.data.ocr.ProcessingResult
 import com.pharadev.receiptscanner.data.ocr.QualityAssessment
@@ -93,7 +94,12 @@ class CameraViewModel @Inject constructor(
         _isProcessingOCR.value = true
         viewModelScope.launch {
             try {
-                val imageUri = Uri.parse(imagePath)
+                val imageUri = if (imagePath.startsWith("content://") || imagePath.startsWith("file://")) {
+                    Uri.parse(imagePath)
+                } else {
+                    // Create proper file URI for absolute file paths
+                    Uri.fromFile(File(imagePath))
+                }
                 val processingResult = ocrProcessingService.processReceiptFromUri(imageUri)
                 
                 when (processingResult) {
@@ -121,8 +127,14 @@ class CameraViewModel @Inject constructor(
                         suggestCategory(extractedData.vendor)
                         
                         // Show manual entry if quality is poor or data is insufficient
-                        if (ocrProcessingService.shouldUseManualEntry(processingResult)) {
+                        val shouldShowManualEntry = ocrProcessingService.shouldUseManualEntry(processingResult) ||
+                                                   extractedData.vendor.isBlank() || extractedData.amount <= BigDecimal.ZERO
+                        if (shouldShowManualEntry) {
                             _showManualEntry.value = true
+                            // Pre-populate manual fields with any extracted data
+                            _manualVendor.value = extractedData.vendor
+                            _manualAmount.value = if (extractedData.amount > BigDecimal.ZERO) extractedData.amount.toString() else ""
+                            _manualDate.value = extractedData.date
                         }
                         
                     }
@@ -214,30 +226,31 @@ class CameraViewModel @Inject constructor(
         val amount: BigDecimal
         val date: LocalDate
         val notes: String?
+        val needsReview: Boolean
         
         if (_showManualEntry.value) {
             // Use manual entry data
             vendor = _manualVendor.value.trim()
-            try {
-                amount = BigDecimal(_manualAmount.value)
+            amount = try {
+                if (_manualAmount.value.isBlank()) BigDecimal.ZERO else BigDecimal(_manualAmount.value)
             } catch (e: NumberFormatException) {
-                return // Invalid amount
+                BigDecimal.ZERO
             }
             date = _manualDate.value
             notes = _manualNotes.value.trim().takeIf { it.isNotEmpty() }
+            needsReview = vendor.isEmpty() || amount <= BigDecimal.ZERO
         } else {
             // Use extracted data
-            val extracted = _extractedData.value ?: return
-            vendor = extracted.vendor
-            amount = extracted.amount
-            date = extracted.date
-            notes = null
+            val extracted = _extractedData.value
+            vendor = extracted?.vendor?.takeIf { it.isNotBlank() } ?: "Unknown Vendor"
+            amount = extracted?.amount?.takeIf { it > BigDecimal.ZERO } ?: BigDecimal.ZERO
+            date = extracted?.date ?: LocalDate.now()
+            needsReview = vendor == "Unknown Vendor" || amount <= BigDecimal.ZERO || 
+                         extracted?.confidence ?: 0f < 0.5f
+            notes = if (needsReview) "Needs review - OCR confidence: ${extracted?.confidence ?: 0f}" else null
         }
         
-        if (vendor.isEmpty() || amount <= BigDecimal.ZERO) {
-            return // Invalid data
-        }
-        
+        // Create receipt even with incomplete data, but flag for review
         val receipt = ReceiptDomain(
             imagePath = imagePath,
             vendor = vendor,
@@ -251,6 +264,12 @@ class CameraViewModel @Inject constructor(
         
         launchWithLoading {
             receiptRepository.insertReceipt(receipt)
+            
+            // Show feedback to user about data quality
+            if (needsReview) {
+                handleError("Receipt saved but needs review - some information may be incomplete")
+            }
+            
             clearState()
         }
     }

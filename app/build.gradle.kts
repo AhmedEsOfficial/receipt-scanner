@@ -112,6 +112,7 @@ dependencies {
     // Image Loading
     implementation(libs.glide)
     kapt(libs.glide.compiler)
+    implementation("io.coil-kt:coil-compose:2.4.0")
     
     // Camera
     implementation(libs.androidx.camera.core)
@@ -120,17 +121,28 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.extensions)
     
-    // ML Kit OCR
-    implementation(libs.google.mlkit.text.recognition)
+    // Google Play Services Base (required for MLKit)
+    implementation("com.google.android.gms:play-services-base:18.5.0")
+    implementation("com.google.android.gms:play-services-tasks:18.2.0")
+    
+    // ML Kit OCR - Standalone version (doesn't require Google Play Services)
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+    
+    // Alternative: Bundled version that includes models in APK
+    // implementation("com.google.mlkit:text-recognition:16.0.1")
     
     // Date/Time
     implementation(libs.androidx.work.runtime.ktx)
+    
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
     
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.arch.core.testing)
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.10")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.hilt.android.testing)

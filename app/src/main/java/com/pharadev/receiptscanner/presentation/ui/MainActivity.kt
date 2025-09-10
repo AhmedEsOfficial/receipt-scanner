@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import com.pharadev.receiptscanner.presentation.ui.camera.CameraActivity
 import com.pharadev.receiptscanner.presentation.ui.gallery.GalleryActivity
+import com.pharadev.receiptscanner.presentation.ui.receipts.ReceiptListActivity
+import com.pharadev.receiptscanner.presentation.ui.receipts.ReceiptDetailActivity
 import com.pharadev.receiptscanner.presentation.viewmodel.DashboardViewModel
 import com.pharadev.receiptscanner.domain.model.ReceiptDomain
 import com.pharadev.receiptscanner.domain.model.DashboardStatistics
@@ -46,7 +48,9 @@ class MainActivity : ComponentActivity() {
                     MainScreen(
                         viewModel = dashboardViewModel,
                         onScanReceiptClick = { startCameraActivity() },
-                        onGalleryImportClick = { startGalleryActivity() }
+                        onGalleryImportClick = { startGalleryActivity() },
+                        onViewAllReceiptsClick = { startReceiptListActivity() },
+                        onReceiptClick = { receiptId -> startReceiptDetailActivity(receiptId) }
                     )
                 }
             }
@@ -62,6 +66,18 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, GalleryActivity::class.java)
         startActivity(intent)
     }
+    
+    private fun startReceiptListActivity() {
+        val intent = Intent(this, ReceiptListActivity::class.java)
+        startActivity(intent)
+    }
+    
+    private fun startReceiptDetailActivity(receiptId: Long) {
+        val intent = Intent(this, ReceiptDetailActivity::class.java).apply {
+            putExtra("receiptId", receiptId)
+        }
+        startActivity(intent)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +85,9 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     viewModel: DashboardViewModel,
     onScanReceiptClick: () -> Unit,
-    onGalleryImportClick: () -> Unit
+    onGalleryImportClick: () -> Unit,
+    onViewAllReceiptsClick: () -> Unit,
+    onReceiptClick: (Long) -> Unit
 ) {
     val dashboardStats by viewModel.statistics.collectAsStateWithLifecycle()
     
@@ -102,7 +120,11 @@ fun MainScreen(
         
         // Recent Receipts Section  
         dashboardStats?.let { stats ->
-            RecentReceiptsSection(receipts = stats.recentReceipts)
+            RecentReceiptsSection(
+                receipts = stats.recentReceipts,
+                onViewAllClick = onViewAllReceiptsClick,
+                onReceiptClick = onReceiptClick
+            )
         }
     }
 }
@@ -315,7 +337,11 @@ fun StatCard(
 }
 
 @Composable
-fun RecentReceiptsSection(receipts: List<ReceiptDomain>) {
+fun RecentReceiptsSection(
+    receipts: List<ReceiptDomain>,
+    onViewAllClick: () -> Unit,
+    onReceiptClick: (Long) -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
@@ -336,7 +362,7 @@ fun RecentReceiptsSection(receipts: List<ReceiptDomain>) {
                 
                 if (receipts.isNotEmpty()) {
                     TextButton(
-                        onClick = { /* TODO: Navigate to full receipt list */ }
+                        onClick = onViewAllClick
                     ) {
                         Text("View All")
                     }
@@ -377,7 +403,10 @@ fun RecentReceiptsSection(receipts: List<ReceiptDomain>) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(receipts) { receipt ->
-                        ReceiptListItem(receipt = receipt)
+                        ReceiptListItem(
+                            receipt = receipt,
+                            onClick = { onReceiptClick(receipt.id) }
+                        )
                     }
                 }
             }
@@ -386,11 +415,15 @@ fun RecentReceiptsSection(receipts: List<ReceiptDomain>) {
 }
 
 @Composable
-fun ReceiptListItem(receipt: ReceiptDomain) {
+fun ReceiptListItem(
+    receipt: ReceiptDomain,
+    onClick: () -> Unit
+) {
     val currencyFormat = DecimalFormat("$#,##0.00")
     val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
     
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)

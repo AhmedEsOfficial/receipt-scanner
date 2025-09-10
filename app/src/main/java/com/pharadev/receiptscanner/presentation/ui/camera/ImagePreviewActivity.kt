@@ -13,6 +13,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.pharadev.receiptscanner.data.image.ImageProcessor
 import com.pharadev.receiptscanner.databinding.ActivityImagePreviewBinding
 import com.pharadev.receiptscanner.presentation.viewmodel.CameraViewModel
+import com.pharadev.receiptscanner.presentation.ui.manual.ManualEntryActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -143,7 +144,10 @@ class ImagePreviewActivity : AppCompatActivity() {
     }
     
     private fun navigateToOCRResults(imageUri: Uri) {
-        // For now, just finish the activity until OCR implementation is ready
+        val intent = Intent(this, ManualEntryActivity::class.java).apply {
+            putExtra(ManualEntryActivity.EXTRA_IMAGE_URI, imageUri.toString())
+        }
+        startActivity(intent)
         finish()
     }
     
