@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">Receipt Scanner</string>
+    
+    <!-- Camera UI Strings -->
+    <string name="close">Close</string>
+    <string name="scan_receipt">Scan Receipt</string>
+    <string name="camera_instructions">Position the receipt within the frame and tap to capture</string>
+    <string name="toggle_flash">Toggle Flash</string>
+    <string name="open_gallery">Open Gallery</string>
+    <string name="capture_photo">Capture Photo</string>
+    <string name="flip_camera">Flip Camera</string>
+    
+    <!-- Error Messages -->
+    <string name="camera_permission_required">Camera permission is required to scan receipts</string>
+    <string name="storage_permission_required">Storage permission is required to access gallery images</string>
+    <string name="camera_initialization_failed">Failed to initialize camera</string>
+    <string name="image_processing_failed">Failed to process image</string>
 </resources>

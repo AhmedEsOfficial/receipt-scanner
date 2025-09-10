@@ -7,4 +7,20 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- App Colors -->
+    <color name="primary">#FF2196F3</color>
+    <color name="primary_dark">#FF1976D2</color>
+    <color name="accent">#FF4CAF50</color>
+    
+    <!-- Camera UI Colors -->
+    <color name="selection_overlay">#802196F3</color>
+    
+    <!-- App Theme Colors -->
+    <color name="background_light">#FFF8F9FA</color>
+    <color name="surface_light">#FFFFFFFF</color>
+    <color name="text_primary">#FF212121</color>
+    <color name="text_secondary">#FF757575</color>
+    <color name="error">#FFD32F2F</color>
+    <color name="error_background">#FFFFEBEE</color>
 </resources>

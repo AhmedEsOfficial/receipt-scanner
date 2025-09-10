@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Production configuration - restrict cleartext traffic -->
+    <!-- 
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">your-api-domain.com</domain>
+        <pin-set expiration="2025-12-31">
+            <pin digest="SHA-256">YourActualCertificateHashHere=</pin>
+            <pin digest="SHA-256">BackupCertificateHashHere=</pin>
+        </pin-set>
+    </domain-config>
+    -->
+    
+    <!-- Development configuration - allows localhost for testing -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator -->
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+    
+    <!-- Base configuration -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system CAs -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>
