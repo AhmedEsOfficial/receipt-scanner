@@ -146,4 +146,4 @@ Planning and implementation notes live in [`docs/`](docs/): product requirements
 
 ## License
 
-All rights reserved — license TBD.
+MIT — see [LICENSE](LICENSE).
