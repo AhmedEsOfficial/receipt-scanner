@@ -275,6 +275,6 @@ Regular dependency updates should be performed:
 ---
 
 **Integration Date:** September 9, 2025  
-**Task:** MVP-Tasks.md - Section 1.2 Core Dependencies & Libraries  
+**Task:** docs/MVP-Tasks.md - Section 1.2 Core Dependencies & Libraries  
 **Status:** ✅ Completed  
 **Libraries Status:** All dependencies integrated and ready for development
